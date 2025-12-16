@@ -1,9 +1,11 @@
+import React from 'react'
+import Header from '../components/Header'
+
 const Home = () => {
 	return (
-		<main>
-			<h1>Home</h1>
-			<p>Welcome to the background remover.</p>
-		</main>
+		<div>
+            <Header />
+        </div>
 	)
 }
 
