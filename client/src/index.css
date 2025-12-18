@@ -25,3 +25,7 @@ body {
 	background-repeat: no-repeat;
 	background-size: contain;
 }
+
+.bg-layer{
+	background-image: url('/bg_layer.png');
+}
