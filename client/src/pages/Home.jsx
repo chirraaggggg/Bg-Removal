@@ -9,6 +9,7 @@ const Home = () => {
             <Header />
 			<Steps />
 			<BgSlider />
+			<Testimonials />
         </div>
 	)
 }
