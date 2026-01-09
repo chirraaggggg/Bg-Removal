@@ -29,7 +29,9 @@ export const assets = {
     google_plus_icon,
     twitter_icon,
     upload_btn_icon,
-    credit_icon
+    credit_icon,
+    profile_img_1,
+    profile_img_2
 }
 
 export const testimonialsData = [
