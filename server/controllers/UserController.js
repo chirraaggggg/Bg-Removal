@@ -7,11 +7,19 @@ import userModel from "../models/userModel.js";
 const clerkwebhooks = async (req,res) => {
     
     try {
+        // Verify webhook secret is configured
+        if (!process.env.CLERK_WEBHOOK_SECRET) {
+            console.error('CLERK_WEBHOOK_SECRET is not configured');
+            return res.status(500).json({success: false, message: 'Webhook secret not configured'});
+        }
 
         // create a svix instance with clerk webhook secret.
         const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
 
-        await whook.verify(JSON.stringify(req.body),{
+        // Use raw body for verification (needed for signature validation)
+        const payload = req.rawBody || JSON.stringify(req.body);
+        
+        await whook.verify(payload,{
             "svix-id":req.headers["svix-id"],
             "svix-timestamp":req.headers["svix-timestamp"],
             "svix-signature":req.headers["svix-signature"]

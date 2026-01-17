@@ -10,7 +10,12 @@ const PORT = process.env.PORT || 4000;
 const app = express();
 
 // Initialize middleware
-app.use(express.json());
+// Note: Webhook endpoints need raw body for signature verification
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 app.use(cors()); 
 
 // Connect to database (with error handling)
