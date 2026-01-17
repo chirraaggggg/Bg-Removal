@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import connectDB from './configs/mongodb.js';
+import userRouter from './routes/userRoutes.js';
 
 // App config
 const PORT = process.env.PORT || 4000;
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+app.use('/api/user',userRouter)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
