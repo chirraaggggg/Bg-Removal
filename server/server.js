@@ -16,12 +16,22 @@ app.use(express.json({
     req.rawBody = buf.toString();
   }
 }));
-app.use(cors()); 
+app.use(cors());
 
-// Connect to database (with error handling)
-connectDB().catch(err => {
-  console.error('Database connection failed:', err);
-});
+// Connect to database immediately (critical for Vercel serverless)
+let dbConnection = null;
+const initDB = async () => {
+  if (!dbConnection) {
+    dbConnection = connectDB().catch(err => {
+      console.error('Database connection failed:', err);
+      return null;
+    });
+  }
+  return dbConnection;
+};
+
+// Initialize DB on startup
+initDB();
 
 // API routes
 app.get('/', (req, res) => {
@@ -31,7 +41,8 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
-app.use('/api/user',userRouter)
+
+app.use('/api/user', userRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -61,7 +72,7 @@ app.use((err, req, res, next) => {
 
 // For local development
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log("Server is running on port "+ PORT));
+  app.listen(PORT, () => console.log("Server is running on port " + PORT));
 }
 
 // Export for Vercel

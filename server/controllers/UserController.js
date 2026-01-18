@@ -4,28 +4,28 @@ import userModel from "../models/userModel.js";
 // API controller function to manage clerk user with database
 // http://localhost:4000/api/user/webhooks
 
-const clerkwebhooks = async (req,res) => {
-    
+const clerkwebhooks = async (req, res) => {
     try {
         // Verify webhook secret is configured
         if (!process.env.CLERK_WEBHOOK_SECRET) {
             console.error('CLERK_WEBHOOK_SECRET is not configured');
-            return res.status(500).json({success: false, message: 'Webhook secret not configured'});
+            return res.status(500).json({ success: false, message: 'Webhook secret not configured' });
         }
 
-        // create a svix instance with clerk webhook secret.
+        // Create a svix instance with clerk webhook secret
         const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
 
         // Use raw body for verification (needed for signature validation)
         const payload = req.rawBody || JSON.stringify(req.body);
         
-        await whook.verify(payload,{
-            "svix-id":req.headers["svix-id"],
-            "svix-timestamp":req.headers["svix-timestamp"],
-            "svix-signature":req.headers["svix-signature"]
-        })
+        // Verify webhook signature
+        await whook.verify(payload, {
+            "svix-id": req.headers["svix-id"],
+            "svix-timestamp": req.headers["svix-timestamp"],
+            "svix-signature": req.headers["svix-signature"]
+        });
 
-        const {data, type} = req.body
+        const { data, type } = req.body;
 
         switch (type) {
             case "user.created": {
@@ -35,11 +35,11 @@ const clerkwebhooks = async (req,res) => {
                     firstName: data.first_name,
                     lastName: data.last_name,
                     photo: data.image_url
-                }
-                await userModel.create(userData)
-                res.json({})
-
-                break;
+                };
+                
+                await userModel.create(userData);
+                console.log(`User created: ${data.id}`);
+                return res.status(200).json({ success: true, message: 'User created' });
             }
 
             case "user.updated": {
@@ -48,26 +48,36 @@ const clerkwebhooks = async (req,res) => {
                     firstName: data.first_name,
                     lastName: data.last_name,
                     photo: data.image_url
-                }
-                await userModel.findOneAndUpdate({clerkId:data.id},userData)
-                res.json({})
-                break;
+                };
+                
+                await userModel.findOneAndUpdate({ clerkId: data.id }, userData);
+                console.log(`User updated: ${data.id}`);
+                return res.status(200).json({ success: true, message: 'User updated' });
             }
 
             case "user.deleted": {
-                await userModel.findOneAndDelete({clerkId:data.id})
-                res.json({})
-                break;
+                await userModel.findOneAndDelete({ clerkId: data.id });
+                console.log(`User deleted: ${data.id}`);
+                return res.status(200).json({ success: true, message: 'User deleted' });
             }
-            
 
             default:
-                break;
+                // Acknowledge receipt of unknown event types
+                console.log(`Unhandled webhook event type: ${type}`);
+                return res.status(200).json({ success: true, message: 'Event received' });
         }
+        
     } catch (error) {
-        console.log(error.message);
-        res.json({success:false,message:error.message});
+        console.error('Webhook error:', error.message);
+        console.error('Error stack:', error.stack);
+        
+        // Return proper error response
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Webhook error',
+            error: error.message 
+        });
     }
-}
+};
 
-export {clerkwebhooks};
+export { clerkwebhooks };
