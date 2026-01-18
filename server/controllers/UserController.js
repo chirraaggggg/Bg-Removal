@@ -1,5 +1,6 @@
 import { Webhook } from "svix"
 import userModel from "../models/userModel.js";
+import mongoose from "mongoose";
 
 // API controller function to manage clerk user with database
 // http://localhost:4000/api/user/webhooks
@@ -12,20 +13,27 @@ const clerkwebhooks = async (req, res) => {
             return res.status(500).json({ success: false, message: 'Webhook secret not configured' });
         }
 
+        // Ensure database is connected
+        if (mongoose.connection.readyState !== 1) {
+            console.error('Database not connected');
+            return res.status(503).json({ success: false, message: 'Database not ready' });
+        }
+
         // Create a svix instance with clerk webhook secret
         const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
 
-        // Use raw body for verification (needed for signature validation)
-        const payload = req.rawBody || JSON.stringify(req.body);
+        // Get raw body (req.body is a Buffer from express.raw())
+        const payload = req.body.toString();
         
         // Verify webhook signature
-        await whook.verify(payload, {
+        const evt = await whook.verify(payload, {
             "svix-id": req.headers["svix-id"],
             "svix-timestamp": req.headers["svix-timestamp"],
             "svix-signature": req.headers["svix-signature"]
         });
 
-        const { data, type } = req.body;
+        // Parse the verified payload
+        const { data, type } = JSON.parse(payload);
 
         switch (type) {
             case "user.created": {

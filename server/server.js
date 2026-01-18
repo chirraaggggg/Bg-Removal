@@ -9,14 +9,14 @@ import userRouter from './routes/userRoutes.js';
 const PORT = process.env.PORT || 4000;
 const app = express();
 
-// Initialize middleware
-// Note: Webhook endpoints need raw body for signature verification
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf.toString();
-  }
-}));
+// CORS must come first
 app.use(cors());
+
+// Webhook route needs raw body - MUST come before express.json()
+app.use('/api/user/webhooks', express.raw({ type: 'application/json' }));
+
+// Regular JSON parsing for other routes
+app.use(express.json());
 
 // Connect to database immediately (critical for Vercel serverless)
 let dbConnection = null;
@@ -24,11 +24,22 @@ const initDB = async () => {
   if (!dbConnection) {
     dbConnection = connectDB().catch(err => {
       console.error('Database connection failed:', err);
-      return null;
+      throw err;
     });
   }
   return dbConnection;
 };
+
+// Ensure database connection before handling requests
+app.use(async (req, res, next) => {
+  try {
+    await initDB();
+    next();
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    next(); // Continue anyway, let route handlers check connection
+  }
+});
 
 // Initialize DB on startup
 initDB();
