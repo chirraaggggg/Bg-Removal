@@ -45,12 +45,32 @@ app.get('/', (req, res) => {
 app.use('/api/user', userRouter);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: "Server is healthy",
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Check database connection
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    
+    // Try a simple database operation
+    let userCount = 0;
+    if (dbStatus === 'connected') {
+      userCount = await mongoose.connection.db.collection('users').countDocuments();
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Server is healthy",
+      database: dbStatus,
+      userCount: userCount,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: "Health check failed",
+      error: error.message,
+      database: 'error'
+    });
+  }
 });
 
 // 404 handler

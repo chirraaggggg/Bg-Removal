@@ -39,49 +39,96 @@ const clerkwebhooks = async (req, res) => {
         switch (type) {
             case "user.created": {
                 try {
+                    // Validate required data
+                    if (!data.id || !data.email_addresses?.[0]?.email_address) {
+                        console.error('Invalid user data received:', data);
+                        return res.status(200).json({ success: true, message: 'Webhook received - invalid data' });
+                    }
+
                     const userData = {
                         clerkId: data.id,
                         email: data.email_addresses[0].email_address,
-                        firstName: data.first_name,
-                        lastName: data.last_name,
-                        photo: data.image_url
+                        firstName: data.first_name || '',
+                        lastName: data.last_name || '',
+                        photo: data.image_url || ''
                     };
-                    
-                    await userModel.create(userData);
-                    console.log(`User created: ${data.id}`);
+
+                    // Check if user already exists
+                    const existingUser = await userModel.findOne({ clerkId: data.id });
+                    if (existingUser) {
+                        console.log(`User already exists: ${data.id}`);
+                        return res.status(200).json({ success: true, message: 'User already exists' });
+                    }
+
+                    const newUser = await userModel.create(userData);
+                    console.log(`✅ User created successfully: ${data.id} - MongoDB ID: ${newUser._id}`);
                     return res.status(200).json({ success: true, message: 'User created' });
                 } catch (dbError) {
-                    console.error('Database error creating user:', dbError.message);
-                    // Still return success to Clerk to avoid retries for DB issues
+                    console.error('❌ Database error creating user:', dbError.message);
+                    // For duplicate key errors, still return success
+                    if (dbError.code === 11000) {
+                        console.log(`User already exists (duplicate key): ${data.id}`);
+                        return res.status(200).json({ success: true, message: 'User already exists' });
+                    }
+                    // For other DB errors, return success to prevent Clerk retries
                     return res.status(200).json({ success: true, message: 'Webhook received' });
                 }
             }
 
             case "user.updated": {
                 try {
+                    if (!data.id) {
+                        console.error('Invalid update data - missing clerkId');
+                        return res.status(200).json({ success: true, message: 'Webhook received - invalid data' });
+                    }
+
                     const userData = {
-                        email: data.email_addresses[0].email_address,
-                        firstName: data.first_name,
-                        lastName: data.last_name,
-                        photo: data.image_url
+                        email: data.email_addresses?.[0]?.email_address,
+                        firstName: data.first_name || '',
+                        lastName: data.last_name || '',
+                        photo: data.image_url || ''
                     };
-                    
-                    await userModel.findOneAndUpdate({ clerkId: data.id }, userData);
-                    console.log(`User updated: ${data.id}`);
-                    return res.status(200).json({ success: true, message: 'User updated' });
+
+                    // Remove undefined values
+                    Object.keys(userData).forEach(key => userData[key] === undefined && delete userData[key]);
+
+                    const updatedUser = await userModel.findOneAndUpdate(
+                        { clerkId: data.id },
+                        userData,
+                        { new: true, runValidators: true }
+                    );
+
+                    if (updatedUser) {
+                        console.log(`✅ User updated successfully: ${data.id}`);
+                        return res.status(200).json({ success: true, message: 'User updated' });
+                    } else {
+                        console.log(`⚠️ User not found for update: ${data.id}`);
+                        return res.status(200).json({ success: true, message: 'User not found' });
+                    }
                 } catch (dbError) {
-                    console.error('Database error updating user:', dbError.message);
+                    console.error('❌ Database error updating user:', dbError.message);
                     return res.status(200).json({ success: true, message: 'Webhook received' });
                 }
             }
 
             case "user.deleted": {
                 try {
-                    await userModel.findOneAndDelete({ clerkId: data.id });
-                    console.log(`User deleted: ${data.id}`);
-                    return res.status(200).json({ success: true, message: 'User deleted' });
+                    if (!data.id) {
+                        console.error('Invalid delete data - missing clerkId');
+                        return res.status(200).json({ success: true, message: 'Webhook received - invalid data' });
+                    }
+
+                    const deletedUser = await userModel.findOneAndDelete({ clerkId: data.id });
+
+                    if (deletedUser) {
+                        console.log(`✅ User deleted successfully: ${data.id}`);
+                        return res.status(200).json({ success: true, message: 'User deleted' });
+                    } else {
+                        console.log(`⚠️ User not found for deletion: ${data.id}`);
+                        return res.status(200).json({ success: true, message: 'User not found' });
+                    }
                 } catch (dbError) {
-                    console.error('Database error deleting user:', dbError.message);
+                    console.error('❌ Database error deleting user:', dbError.message);
                     return res.status(200).json({ success: true, message: 'Webhook received' });
                 }
             }
