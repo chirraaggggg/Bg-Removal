@@ -30,18 +30,7 @@ const initDB = async () => {
   return dbConnection;
 };
 
-// Ensure database connection before handling requests
-app.use(async (req, res, next) => {
-  try {
-    await initDB();
-    next();
-  } catch (error) {
-    console.error('Database initialization error:', error);
-    next(); // Continue anyway, let route handlers check connection
-  }
-});
-
-// Initialize DB on startup
+// Initialize DB on startup (don't block webhook responses)
 initDB();
 
 // API routes
